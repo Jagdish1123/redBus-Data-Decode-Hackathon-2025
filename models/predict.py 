@@ -1,0 +1,55 @@
+"""
+predict.py - Model Inference Script
+
+Usage:
+    python predict.py --input <new_data.csv> --model <model.pkl> --output <predictions.csv>
+"""
+
+import pandas as pd
+import argparse
+import joblib
+from pathlib import Path
+
+def load_model(model_path):
+    """Load trained model from file"""
+    if not Path(model_path).exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    return joblib.load(model_path)
+
+def preprocess_new_data(df, preprocessor):
+    """Apply the same preprocessing used during training"""
+    # Your exact preprocessing logic from the training script
+    df = preprocessor.transform(df)
+    return df
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True, help="Path to new data CSV")
+    parser.add_argument("--model", default="models/production_v1.pkl", help="Model path")
+    parser.add_argument("--output", default="predictions.csv", help="Output file")
+    args = parser.parse_args()
+
+    # Load model and preprocessing artifacts
+    artifacts = joblib.load(args.model)
+    model = artifacts['model']
+    preprocessor = artifacts['preprocessor']
+    feature_columns = artifacts['feature_columns']
+
+    # Load and prepare new data
+    new_data = pd.read_csv(args.input)
+    processed_data = preprocess_new_data(new_data, preprocessor)
+    
+    # Ensure correct feature columns (same order as training)
+    processed_data = processed_data[feature_columns]
+
+    # Generate predictions
+    predictions = model.predict(processed_data)
+    
+    # Save results
+    output = new_data.copy()
+    output['predicted_seatcount'] = predictions
+    output.to_csv(args.output, index=False)
+    print(f"Predictions saved to {args.output}")
+
+if __name__ == "__main__":
+    main()
